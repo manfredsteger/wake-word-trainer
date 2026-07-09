@@ -1,9 +1,9 @@
 # Downloaded data (large, re-downloadable)
-data/
-models/
-openWakeWord/
-piper/
-piper-voices/
+/data/
+/models/
+/openWakeWord/
+/piper/
+/piper-voices/
 
 # Generated outputs (user-specific)
 output/
@@ -16,6 +16,12 @@ __pycache__/
 *.pyc
 *.pyo
 .Python
+
+# Web app
+web/node_modules/
+web/.next/
+web/prisma/trainer.db
+web/prisma/trainer.db-journal
 
 # macOS
 .DS_Store

@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./trainer.db"
+}
+
+model TrainingRun {
+  id         Int       @id @default(autoincrement())
+  wakeWord   String
+  modelName  String
+  samples    Int
+  steps      Int
+  fullMode   Boolean   @default(false)
+  status     String    @default("pending")
+  accuracy   Float?
+  fpPerHour  Float?
+  outputFile String?
+  logFile    String?
+  pid        Int?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
