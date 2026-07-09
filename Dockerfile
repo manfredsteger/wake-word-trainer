@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# ── Stage 1: Python trainer base ──────────────────────────────────────────────
+FROM python:3.11-slim AS trainer
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -93,10 +94,33 @@ else:
 EOF
 
 # Copy trainer script
-COPY train.py .
+COPY train.py record.py ./
 
 # Volumes for persistent data and output models
 VOLUME ["/app/data", "/app/output", "/app/piper-voices"]
 
 ENTRYPOINT ["python", "train.py"]
 CMD ["--help"]
+
+
+# ── Stage 2: Web UI (Python trainer + Node.js) ─────────────────────────────────
+FROM trainer AS web
+
+# Install Node.js 20 LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install web dependencies
+COPY web/package.json /app/web/
+RUN cd /app/web && npm install --prefer-offline
+
+# Copy web source and build
+COPY web/ /app/web/
+RUN cd /app/web && \
+    npx prisma generate && \
+    npm run build
+
+EXPOSE 3000
+
+CMD ["sh", "-c", "cd /app/web && npx prisma db push --skip-generate 2>/dev/null; npm start"]

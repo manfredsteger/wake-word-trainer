@@ -1,12 +1,30 @@
 services:
-  trainer:
-    build: .
-    image: wake-word-trainer
+  # Web UI — http://localhost:3000
+  web:
+    build:
+      context: .
+      target: web
+    image: wake-word-trainer-web
+    ports:
+      - "3000:3000"
     volumes:
-      - ./data:/app/data           # background noise, feature files (~2-13 GB)
-      - ./output:/app/output       # trained .onnx models
-      - ./piper-voices:/app/piper-voices  # Piper TTS voice models (~60 MB each)
-    # Pass the wake word and any flags after "docker compose run trainer":
-    #   docker compose run trainer "Hey Dobbi"
-    #   docker compose run trainer "Hey Jarvis" --samples 500 --steps 5000
-    #   docker compose run trainer "Hey Dobbi" --full
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./piper-voices:/app/piper-voices
+      - web-db:/app/web/prisma       # SQLite DB persistence
+
+  # CLI trainer (run directly, not as a long-running service)
+  trainer:
+    build:
+      context: .
+      target: trainer
+    image: wake-word-trainer
+    profiles:
+      - cli
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./piper-voices:/app/piper-voices
+
+volumes:
+  web-db:
