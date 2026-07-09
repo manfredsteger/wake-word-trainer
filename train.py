@@ -779,14 +779,47 @@ def main():
     parser = argparse.ArgumentParser(
         description="Wake word trainer for Home Assistant (macOS ARM / Apple Silicon)"
     )
-    parser.add_argument("wake_word", help='Wake word, e.g. "Hey Dobbi"')
+    parser.add_argument("wake_word", nargs="?", default=None,
+                        help='Wake word, e.g. "Hey Dobbi"')
     parser.add_argument("--samples", type=int, default=500,
                         help="TTS samples to generate (default: 500)")
     parser.add_argument("--steps", type=int, default=3000,
                         help="Training steps (default: 3000)")
     parser.add_argument("--full", action="store_true",
                         help="Production mode: 2000 samples, 25k steps, +11 GB downloads")
+    parser.add_argument("--prefetch", action="store_true",
+                        help="Download all training data (~13 GB) without training")
     args = parser.parse_args()
+
+    if args.prefetch:
+        print("""
+╔══════════════════════════════════════════════════╗
+║         Pre-fetching All Training Data           ║
+╚══════════════════════════════════════════════════╝
+  Downloads (cached in ./data/ — only once):
+    • MIT Room Impulse Responses      ~50 MB
+    • AudioSet background clips       ~500 clips
+    • MUSAN music/noise               ~200 clips
+    • Validation features             ~400 MB
+    • ACAV100M negative features      ~11 GB
+""")
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        print("[1/2] Downloading background / augmentation data...")
+        download_background_data(full_mode=True)
+        print("\n[2/2] Downloading negative feature data...")
+        download_feature_data(full_mode=True)
+        print("""
+╔══════════════════════════════════════════════════╗
+║              All data ready!                     ║
+╚══════════════════════════════════════════════════╝
+  Run training with:
+    python train.py "Hey Dobbi" --full
+    make train WORD="Hey Dobbi" FULL=1
+""")
+        return
+
+    if not args.wake_word:
+        parser.error("wake_word is required (or use --prefetch to just download data)")
 
     n_samples = (2000 if args.full else args.samples) if args.samples == 500 else args.samples
     steps = (25000 if args.full else args.steps) if args.steps == 3000 else args.steps

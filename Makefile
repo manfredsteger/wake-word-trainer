@@ -48,6 +48,14 @@ status: ## Show container status
 
 ##@ CLI Training  (no web UI required)
 
+prefetch: ## Pre-download all training data (~13 GB) into ./data — run once before --full
+	@echo "$(Y)→ Pre-fetching all training data into ./data/ ...$(X)"
+	@echo "$(Y)  MIT RIRs · AudioSet · MUSAN · validation features · ACAV100M (~11 GB)$(X)"
+	@echo ""
+	@docker compose run --rm -e PYTHONUNBUFFERED=1 trainer --prefetch
+	@echo ""
+	@echo "$(G)✓ All data cached. Run$(X) $(B)make train WORD=\"Hey Dobbi\" FULL=1$(X) $(G)to start immediately.$(X)"
+
 train: ## Run training — make train WORD="Hey Dobbi" [SAMPLES=500] [STEPS=5000] [FULL=1]
 	@[ -n "$(WORD)" ] || { \
 		echo "$(R)Error: WORD is required$(X)"; \
