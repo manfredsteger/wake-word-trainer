@@ -17,3 +17,4 @@ acoustics==0.2.6
 onnxruntime
 soundfile
 onnxscript
+sounddevice
