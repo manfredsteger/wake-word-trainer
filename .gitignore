@@ -1,0 +1,21 @@
+# Downloaded data (large, re-downloadable)
+data/
+models/
+openWakeWord/
+piper/
+piper-voices/
+
+# Generated outputs (user-specific)
+output/
+*.yaml
+*.npy
+
+# Python env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# macOS
+.DS_Store

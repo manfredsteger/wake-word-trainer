@@ -1,0 +1,12 @@
+services:
+  trainer:
+    build: .
+    image: wake-word-trainer
+    volumes:
+      - ./data:/app/data           # background noise, feature files (~2-13 GB)
+      - ./output:/app/output       # trained .onnx models
+      - ./piper-voices:/app/piper-voices  # Piper TTS voice models (~60 MB each)
+    # Pass the wake word and any flags after "docker compose run trainer":
+    #   docker compose run trainer "Hey Dobbi"
+    #   docker compose run trainer "Hey Jarvis" --samples 500 --steps 5000
+    #   docker compose run trainer "Hey Dobbi" --full
