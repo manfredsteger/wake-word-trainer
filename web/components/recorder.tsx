@@ -35,9 +35,11 @@ interface RecorderProps {
   speaker: string;
   target: number;
   onProgress: (saved: number) => void;
+  apiPath?: string;
+  extraFields?: Record<string, string>;
 }
 
-export function Recorder({ wakeWord, speaker, target, onProgress }: RecorderProps) {
+export function Recorder({ wakeWord, speaker, target, onProgress, apiPath = '/api/recordings', extraFields }: RecorderProps) {
   const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>('idle');
   const [countdown, setCountdown] = useState(3);
@@ -104,8 +106,11 @@ export function Recorder({ wakeWord, speaker, target, onProgress }: RecorderProp
         form.append('audio', wav, 'recording.wav');
         form.append('wakeWord', wakeWord);
         form.append('speaker', speaker);
+        if (extraFields) {
+          for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
+        }
 
-        const res = await fetch('/api/recordings', { method: 'POST', body: form });
+        const res = await fetch(apiPath, { method: 'POST', body: form });
         if (!res.ok) throw new Error(await res.text());
 
         n++;

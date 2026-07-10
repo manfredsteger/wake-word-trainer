@@ -68,7 +68,10 @@
     "count_label": "Aufnahmen",
     "delete": "Löschen",
     "tip": "Tipp: Variiere Lautstärke und Ton leicht – das macht das Modell robuster.",
-    "addMore": "Weiter aufnehmen"
+    "addMore": "Weiter aufnehmen",
+    "tabVoices": "Stimmen",
+    "tabBackground": "Umgebung",
+    "tabNegatives": "Negativ-Phrasen"
   },
   "models": {
     "title": "Trainierte Modelle",

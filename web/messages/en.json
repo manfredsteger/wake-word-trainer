@@ -68,7 +68,10 @@
     "count_label": "Recordings",
     "delete": "Delete",
     "tip": "Tip: Vary your volume and tone slightly – this makes the model more robust.",
-    "addMore": "Record more"
+    "addMore": "Record more",
+    "tabVoices": "Voices",
+    "tabBackground": "Environment",
+    "tabNegatives": "Negative Phrases"
   },
   "models": {
     "title": "Trained Models",

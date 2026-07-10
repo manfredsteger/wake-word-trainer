@@ -496,6 +496,7 @@ def make_config(wake_word: str, negative_features_path: str,
             p for p in [
                 str(DATA_DIR / "audioset_16k"),
                 str(DATA_DIR / "musan"),
+                str(DATA_DIR / "custom_background"),
             ] if list(Path(p).rglob("*.wav"))
         ],
         "background_paths_duplication_rate": [1] * 2,
