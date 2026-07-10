@@ -43,7 +43,8 @@
     "history": "Trainingshistorie",
     "noHistory": "Noch keine Trainingsläufe.",
     "realVoiceHint": "Tipp: Nimm zuerst echte Stimmen auf für bessere Erkennung →",
-    "newTraining": "Neues Training"
+    "newTraining": "Neues Training",
+    "realVoicesIncluded": "Echte Stimmen werden eingebunden"
   },
   "recordings": {
     "title": "Sprachaufnahmen",

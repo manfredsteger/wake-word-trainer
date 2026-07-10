@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Trash2, Info, Users, PlusCircle } from 'lucide-react';
+import { Mic, Trash2, Info, Users, PlusCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '@/components/header';
 import { Recorder } from '@/components/recorder';
 import { useI18n } from '@/lib/i18n';
@@ -11,6 +11,125 @@ interface Speaker {
   speaker: string;
   wakeWord: string;
   count: number;
+}
+
+interface WakeWordGroup {
+  wakeWord: string;
+  speakers: Speaker[];
+  totalRecordings: number;
+}
+
+function toSlug(s: string) {
+  return s.toLowerCase().replace(/[\s,!.]+/g, '_').replace(/_+/g, '_');
+}
+
+function SpeakerRow({
+  s,
+  onContinue,
+  onDelete,
+}: {
+  s: Speaker;
+  onContinue: (s: Speaker) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const pct = Math.min(100, Math.round((s.count / Math.max(s.count, 20)) * 100));
+  return (
+    <div className="flex items-center gap-4 py-3 px-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg transition-colors">
+      <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+          {s.speaker.charAt(0).toUpperCase()}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-slate-900 dark:text-white text-sm">{s.speaker}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="h-1.5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+            {s.count} {t('recordings.count_label')}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => onContinue(s)}
+          className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium transition-colors"
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          {t('recordings.addMore')}
+        </button>
+        <button onClick={() => onDelete(s.id)} className="btn-danger !py-1 !px-1.5">
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WakeWordCard({
+  group,
+  onContinue,
+  onDelete,
+}: {
+  group: WakeWordGroup;
+  onContinue: (s: Speaker) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+      >
+        <div className="flex-1 flex items-center gap-3 min-w-0">
+          <div className="p-1.5 bg-emerald-100 dark:bg-emerald-950 rounded-lg">
+            <Mic className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="text-left min-w-0">
+            <p className="font-semibold text-slate-900 dark:text-white truncate">
+              &ldquo;{group.wakeWord}&rdquo;
+            </p>
+            <p className="text-xs text-slate-400">
+              {group.speakers.length} {group.speakers.length === 1 ? 'Sprecher' : 'Sprecher'} · {group.totalRecordings} Aufnahmen gesamt
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Speaker avatar stack */}
+          <div className="flex -space-x-2">
+            {group.speakers.slice(0, 4).map(s => (
+              <div
+                key={s.id}
+                className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-900 flex items-center justify-center"
+                title={s.speaker}
+              >
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                  {s.speaker.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            ))}
+            {group.speakers.length > 4 && (
+              <div className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">+{group.speakers.length - 4}</span>
+              </div>
+            )}
+          </div>
+          {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-2 space-y-1">
+          {group.speakers.map(s => (
+            <SpeakerRow key={s.id} s={s} onContinue={onContinue} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function RecordingsPage() {
@@ -29,6 +148,17 @@ export default function RecordingsPage() {
 
   useEffect(() => { loadSpeakers(); }, []);
 
+  // Group speakers by wake word
+  const groups: WakeWordGroup[] = Object.values(
+    speakers.reduce<Record<string, WakeWordGroup>>((acc, s) => {
+      const key = toSlug(s.wakeWord);
+      if (!acc[key]) acc[key] = { wakeWord: s.wakeWord, speakers: [], totalRecordings: 0 };
+      acc[key].speakers.push(s);
+      acc[key].totalRecordings += s.count;
+      return acc;
+    }, {})
+  );
+
   const startSession = () => {
     if (!wakeWord.trim() || !speaker.trim()) return;
     setRecording(true);
@@ -39,7 +169,7 @@ export default function RecordingsPage() {
     setSpeaker(s.speaker);
     setTargetCount(10);
     setRecording(false);
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
   const deleteSpeaker = async (id: string) => {
@@ -147,59 +277,26 @@ export default function RecordingsPage() {
           </div>
         </div>
 
-        {/* Existing recordings */}
-        <div className="card overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        {/* Grouped recordings by wake word */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
             <Users className="w-4 h-4 text-slate-400" />
             <h2 className="font-semibold text-slate-900 dark:text-white">{t('recordings.existing')}</h2>
           </div>
-          {speakers.length === 0 ? (
-            <p className="px-5 py-8 text-center text-slate-400 dark:text-slate-500">
-              {t('recordings.noRecordings')}
-            </p>
+          {groups.length === 0 ? (
+            <div className="card px-5 py-8 text-center">
+              <p className="text-slate-400 dark:text-slate-500">{t('recordings.noRecordings')}</p>
+            </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {speakers.map(s => {
-                const target = Math.max(s.count, 20);
-                const pct = Math.min(100, Math.round((s.count / target) * 100));
-                return (
-                  <div key={s.id} className="px-5 py-3 flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        {s.speaker.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 dark:text-white">{s.speaker}</p>
-                      <p className="text-xs text-slate-400">&ldquo;{s.wakeWord}&rdquo;</p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="hidden sm:block">
-                        <div className="h-2 w-24 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
-                          {s.count} {t('recordings.count_label')}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => continueRecording(s)}
-                        title={t('recordings.addMore')}
-                        className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors font-medium"
-                      >
-                        <PlusCircle className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t('recordings.addMore')}</span>
-                      </button>
-                      <button onClick={() => deleteSpeaker(s.id)} className="btn-danger">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="space-y-3">
+              {groups.map(g => (
+                <WakeWordCard
+                  key={toSlug(g.wakeWord)}
+                  group={g}
+                  onContinue={continueRecording}
+                  onDelete={deleteSpeaker}
+                />
+              ))}
             </div>
           )}
         </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Zap, Mic, Info } from 'lucide-react';
+import { Zap, Mic, Info, Users } from 'lucide-react';
 import { Header } from '@/components/header';
 import { TrainingMonitor } from '@/components/training-monitor';
 import { StatusBadge } from '@/components/status-badge';
@@ -21,6 +21,17 @@ interface Run {
   createdAt: string;
 }
 
+interface Speaker {
+  id: string;
+  speaker: string;
+  wakeWord: string;
+  count: number;
+}
+
+function toSlug(s: string) {
+  return s.toLowerCase().replace(/[\s,!.]+/g, '_').replace(/_+/g, '_');
+}
+
 export default function TrainingPage() {
   const { t } = useI18n();
   const [wakeWord, setWakeWord] = useState('Hey Dobbi');
@@ -30,6 +41,16 @@ export default function TrainingPage() {
   const [activeRun, setActiveRun] = useState<number | null>(null);
   const [recentRuns, setRecentRuns] = useState<Run[]>([]);
   const [isStarting, setIsStarting] = useState(false);
+  const [matchingSpeakers, setMatchingSpeakers] = useState<Speaker[]>([]);
+
+  const loadMatchingSpeakers = useCallback(async (word: string) => {
+    const res = await fetch('/api/recordings');
+    if (!res.ok) return;
+    const all: Speaker[] = await res.json();
+    setMatchingSpeakers(all.filter(s => toSlug(s.wakeWord) === toSlug(word)));
+  }, []);
+
+  useEffect(() => { loadMatchingSpeakers(wakeWord); }, [wakeWord, loadMatchingSpeakers]);
 
   const loadHistory = async () => {
     const res = await fetch('/api/train');
@@ -96,6 +117,23 @@ export default function TrainingPage() {
                 disabled={!!activeRun}
               />
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('training.wakeWordHint')}</p>
+
+              {/* Real voice recordings for this wake word */}
+              {matchingSpeakers.length > 0 && (
+                <div className="mt-2 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 flex items-start gap-2">
+                  <Users className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                  <div className="text-xs text-blue-700 dark:text-blue-300">
+                    <span className="font-medium">{t('training.realVoicesIncluded')}: </span>
+                    {matchingSpeakers.map((s, i) => (
+                      <span key={s.id}>
+                        {i > 0 && ', '}
+                        <span className="font-semibold">{s.speaker}</span>
+                        <span className="opacity-70"> ({s.count}×)</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

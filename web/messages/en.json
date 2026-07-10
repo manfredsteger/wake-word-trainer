@@ -43,7 +43,8 @@
     "history": "Training History",
     "noHistory": "No training runs yet.",
     "realVoiceHint": "Tip: Record real voices first for better recognition →",
-    "newTraining": "New Training"
+    "newTraining": "New Training",
+    "realVoicesIncluded": "Real voices will be included"
   },
   "recordings": {
     "title": "Voice Recordings",
