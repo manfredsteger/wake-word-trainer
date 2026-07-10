@@ -66,7 +66,8 @@
     "speaker_label": "Sprecher",
     "count_label": "Aufnahmen",
     "delete": "Löschen",
-    "tip": "Tipp: Variiere Lautstärke und Ton leicht – das macht das Modell robuster."
+    "tip": "Tipp: Variiere Lautstärke und Ton leicht – das macht das Modell robuster.",
+    "addMore": "Weiter aufnehmen"
   },
   "models": {
     "title": "Trainierte Modelle",

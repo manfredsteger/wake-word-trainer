@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Mic, Trash2, Info, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Mic, Trash2, Info, Users, PlusCircle } from 'lucide-react';
 import { Header } from '@/components/header';
 import { Recorder } from '@/components/recorder';
 import { useI18n } from '@/lib/i18n';
@@ -20,7 +20,7 @@ export default function RecordingsPage() {
   const [targetCount, setTargetCount] = useState(20);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [recording, setRecording] = useState(false);
-  const [saved, setSaved] = useState(0);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const loadSpeakers = async () => {
     const res = await fetch('/api/recordings');
@@ -31,8 +31,15 @@ export default function RecordingsPage() {
 
   const startSession = () => {
     if (!wakeWord.trim() || !speaker.trim()) return;
-    setSaved(0);
     setRecording(true);
+  };
+
+  const continueRecording = (s: Speaker) => {
+    setWakeWord(s.wakeWord);
+    setSpeaker(s.speaker);
+    setTargetCount(10);
+    setRecording(false);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const deleteSpeaker = async (id: string) => {
@@ -53,7 +60,7 @@ export default function RecordingsPage() {
           <p className="text-slate-500 dark:text-slate-400 mt-1">{t('recordings.subtitle')}</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Setup form */}
           <div className="card p-6 space-y-5">
             <div>
@@ -79,7 +86,9 @@ export default function RecordingsPage() {
             </div>
 
             <div>
-              <label className="label">{t('recordings.targetCount')}: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{targetCount}</span></label>
+              <label className="label">
+                {t('recordings.targetCount')}: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{targetCount}</span>
+              </label>
               <input
                 type="range" min={5} max={50} step={5}
                 value={targetCount}
@@ -123,7 +132,7 @@ export default function RecordingsPage() {
                 wakeWord={wakeWord}
                 speaker={speaker}
                 target={targetCount}
-                onProgress={n => setSaved(n)}
+                onProgress={() => {}}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center gap-3 py-12">
@@ -150,33 +159,47 @@ export default function RecordingsPage() {
             </p>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {speakers.map(s => (
-                <div key={s.id} className="px-5 py-3 flex items-center gap-4">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      {s.speaker.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 dark:text-white">{s.speaker}</p>
-                    <p className="text-xs text-slate-400">&ldquo;{s.wakeWord}&rdquo; · {s.count} {t('recordings.count_label')}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-24 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full"
-                        style={{ width: `${Math.min(100, (s.count / 20) * 100)}%` }}
-                      />
+              {speakers.map(s => {
+                const target = Math.max(s.count, 20);
+                const pct = Math.min(100, Math.round((s.count / target) * 100));
+                return (
+                  <div key={s.id} className="px-5 py-3 flex items-center gap-4">
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {s.speaker.charAt(0).toUpperCase()}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium tabular-nums text-slate-600 dark:text-slate-300">
-                      {s.count}/20
-                    </span>
-                    <button onClick={() => deleteSpeaker(s.id)} className="btn-danger">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 dark:text-white">{s.speaker}</p>
+                      <p className="text-xs text-slate-400">&ldquo;{s.wakeWord}&rdquo;</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="hidden sm:block">
+                        <div className="h-2 w-24 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                          {s.count} {t('recordings.count_label')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => continueRecording(s)}
+                        title={t('recordings.addMore')}
+                        className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors font-medium"
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">{t('recordings.addMore')}</span>
+                      </button>
+                      <button onClick={() => deleteSpeaker(s.id)} className="btn-danger">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
