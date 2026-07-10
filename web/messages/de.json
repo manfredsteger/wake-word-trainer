@@ -42,7 +42,8 @@
     "failed": "✗ Training fehlgeschlagen",
     "history": "Trainingshistorie",
     "noHistory": "Noch keine Trainingsläufe.",
-    "realVoiceHint": "Tipp: Nimm zuerst echte Stimmen auf für bessere Erkennung →"
+    "realVoiceHint": "Tipp: Nimm zuerst echte Stimmen auf für bessere Erkennung →",
+    "newTraining": "Neues Training"
   },
   "recordings": {
     "title": "Sprachaufnahmen",

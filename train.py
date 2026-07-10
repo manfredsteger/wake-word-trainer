@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 
@@ -850,16 +851,45 @@ def main():
     model_dir = OUTPUT_DIR / model_name
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    # Start downloads in background threads so they run in parallel with TTS
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _bg_errors: list[Exception] = []
+
+    def _bg_download():
+        try:
+            download_background_data(args.full)
+        except Exception as e:
+            _bg_errors.append(e)
+
+    def _feat_download():
+        try:
+            download_feature_data(args.full)
+        except Exception as e:
+            _bg_errors.append(e)
+
+    bg_thread = threading.Thread(target=_bg_download, daemon=True)
+    feat_thread = threading.Thread(target=_feat_download, daemon=True)
+    bg_thread.start()
+    feat_thread.start()
+
     tts_desc = "Piper TTS voices" if _IS_LINUX else "macOS voices"
     print(f"\n[2/5] Generating {n_samples} TTS samples with {tts_desc}...")
+    print("      (downloads running in background — will wait before training)")
     generate_samples(args.wake_word, model_dir, n_samples)
 
-    print("\n[3/5] Preparing background / augmentation data...")
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    download_background_data(args.full)
+    print("\n[3/5] Waiting for background / augmentation data...")
+    bg_thread.join()
 
-    print("\n[4/5] Preparing negative training features...")
-    negative_features_path = download_feature_data(args.full)
+    print("\n[4/5] Waiting for negative training features...")
+    feat_thread.join()
+
+    if _bg_errors:
+        print(f"  ⚠ Download warning: {_bg_errors[0]}")
+
+    negative_features_path = str(
+        DATA_DIR / ("openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+                    if args.full else "validation_set_features.npy")
+    )
 
     config_path, model_name = make_config(
         args.wake_word, negative_features_path, args.full, steps, n_samples

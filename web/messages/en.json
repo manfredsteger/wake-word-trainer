@@ -42,7 +42,8 @@
     "failed": "✗ Training failed",
     "history": "Training History",
     "noHistory": "No training runs yet.",
-    "realVoiceHint": "Tip: Record real voices first for better recognition →"
+    "realVoiceHint": "Tip: Record real voices first for better recognition →",
+    "newTraining": "New Training"
   },
   "recordings": {
     "title": "Voice Recordings",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Zap, Mic, Info } from 'lucide-react';
 import { Header } from '@/components/header';
@@ -12,8 +12,11 @@ import { formatDate } from '@/lib/utils';
 interface Run {
   id: number;
   wakeWord: string;
+  label: string | null;
   samples: number;
   steps: number;
+  fullMode: boolean;
+  hasRealVoice: boolean;
   status: string;
   createdAt: string;
 }
@@ -30,8 +33,19 @@ export default function TrainingPage() {
 
   const loadHistory = async () => {
     const res = await fetch('/api/train');
-    if (res.ok) setRecentRuns(await res.json());
+    if (res.ok) {
+      const runs: Run[] = await res.json();
+      setRecentRuns(runs);
+      // Auto-restore monitor if a run is still active
+      if (activeRun === null) {
+        const running = runs.find(r => r.status === 'running');
+        if (running) setActiveRun(running.id);
+      }
+    }
   };
+
+  // Load history on mount and auto-restore any running training
+  useEffect(() => { loadHistory(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startTraining = async () => {
     if (!wakeWord.trim() || isStarting) return;
@@ -43,6 +57,12 @@ export default function TrainingPage() {
         body: JSON.stringify({ wakeWord: wakeWord.trim(), samples, steps, full }),
       });
       const data = await res.json();
+      if (res.status === 409) {
+        // Another training is already running — jump to its monitor
+        setActiveRun(data.id);
+        loadHistory();
+        return;
+      }
       if (data.id) {
         setActiveRun(data.id);
         loadHistory();
@@ -121,7 +141,7 @@ export default function TrainingPage() {
               </button>
             ) : (
               <button onClick={() => { setActiveRun(null); loadHistory(); }} className="btn-secondary w-full">
-                ← Neues Training
+                ← {t('training.newTraining')}
               </button>
             )}
 
@@ -162,19 +182,23 @@ export default function TrainingPage() {
               {recentRuns.map(run => (
                 <div key={run.id} className="px-5 py-3 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">&ldquo;{run.wakeWord}&rdquo;</p>
-                    <p className="text-xs text-slate-400">{formatDate(run.createdAt)} · {run.samples} samples · {run.steps} steps</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate">
+                      &ldquo;{run.label ?? run.wakeWord}&rdquo;
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {formatDate(run.createdAt)} · {run.samples} samples · {run.steps.toLocaleString()} steps
+                      {run.fullMode && <span className="ml-1 text-emerald-500">· Full</span>}
+                      {run.hasRealVoice && <span className="ml-1 text-blue-500">· Real voice</span>}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <StatusBadge status={run.status} label={t(`status.${run.status}` as 'status.done')} />
-                    {run.status !== 'running' && (
-                      <button
-                        onClick={() => setActiveRun(run.id)}
-                        className="text-xs text-slate-400 hover:text-emerald-500 transition-colors"
-                      >
-                        Log
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setActiveRun(run.id)}
+                      className="text-xs text-slate-400 hover:text-emerald-500 transition-colors"
+                    >
+                      {run.status === 'running' ? 'Live' : 'Log'}
+                    </button>
                   </div>
                 </div>
               ))}

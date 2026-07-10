@@ -8,18 +8,20 @@ datasource db {
 }
 
 model TrainingRun {
-  id         Int       @id @default(autoincrement())
-  wakeWord   String
-  modelName  String
-  samples    Int
-  steps      Int
-  fullMode   Boolean   @default(false)
-  status     String    @default("pending")
-  accuracy   Float?
-  fpPerHour  Float?
-  outputFile String?
-  logFile    String?
-  pid        Int?
-  createdAt  DateTime  @default(now())
-  finishedAt DateTime?
+  id           Int       @id @default(autoincrement())
+  wakeWord     String
+  modelName    String
+  label        String?
+  samples      Int
+  steps        Int
+  fullMode     Boolean   @default(false)
+  hasRealVoice Boolean   @default(false)
+  status       String    @default("pending")
+  accuracy     Float?
+  fpPerHour    Float?
+  outputFile   String?
+  logFile      String?
+  pid          Int?
+  createdAt    DateTime  @default(now())
+  finishedAt   DateTime?
 }

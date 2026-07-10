@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/lib/db';
-import { LOGS_DIR, PYTHON, TRAIN_SCRIPT } from '@/lib/paths';
+import { LOGS_DIR, OUTPUT_DIR, PYTHON, TRAIN_SCRIPT } from '@/lib/paths';
 
 export async function GET() {
   const runs = await db.trainingRun.findMany({
@@ -23,10 +23,23 @@ export async function POST(req: Request) {
 
   if (!wakeWord?.trim()) return NextResponse.json({ error: 'wakeWord required' }, { status: 400 });
 
+  // Block concurrent training runs
+  const existing = await db.trainingRun.findFirst({ where: { status: 'running' } });
+  if (existing) {
+    return NextResponse.json({ error: 'training_already_running', id: existing.id }, { status: 409 });
+  }
+
   const modelName = wakeWord.toLowerCase().replace(/[\s,!.]+/g, '_').replace(/_+/g, '_');
 
+  // Detect real voice recordings already present for this wake word
+  const realVoiceDir = path.join(OUTPUT_DIR, modelName, 'positive_train');
+  let hasRealVoice = false;
+  try {
+    hasRealVoice = fs.readdirSync(realVoiceDir).some(f => f.startsWith('real_'));
+  } catch { /* dir doesn't exist yet */ }
+
   const run = await db.trainingRun.create({
-    data: { wakeWord, modelName, samples, steps, fullMode: full, status: 'running' },
+    data: { wakeWord, modelName, samples, steps, fullMode: full, status: 'running', hasRealVoice },
   });
 
   fs.mkdirSync(LOGS_DIR, { recursive: true });
@@ -48,18 +61,18 @@ export async function POST(req: Request) {
 
   await db.trainingRun.update({ where: { id: run.id }, data: { pid: child.pid } });
 
-  // Watch for process exit to update status
   child.on('close', async (code) => {
-    fs.closeSync(logFd);
+    try { fs.closeSync(logFd); } catch { /* already closed */ }
     const status = code === 0 ? 'done' : 'failed';
-    await db.trainingRun.update({
-      where: { id: run.id },
-      data: { status, finishedAt: new Date() },
-    });
-    // Append sentinel to log
+    try {
+      await db.trainingRun.update({
+        where: { id: run.id },
+        data: { status, finishedAt: new Date() },
+      });
+    } catch { /* dev server may have hot-reloaded */ }
     try {
       fs.appendFileSync(logFile, `\n__${status.toUpperCase()}__\n`);
-    } catch {}
+    } catch { /* log may be gone */ }
   });
 
   return NextResponse.json({ id: run.id });
