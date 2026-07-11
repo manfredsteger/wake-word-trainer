@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const config = {
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  },
+  serverExternalPackages: ['@prisma/client'],
   // Allow dev-server access from local network devices (iPhone, tablet, etc.)
   allowedDevOrigins: [
     '192.168.0.0/16',
