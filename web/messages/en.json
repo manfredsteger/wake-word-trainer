@@ -70,6 +70,7 @@
     "tip": "Tip: Vary your volume and tone slightly – this makes the model more robust.",
     "addMore": "Record more",
     "tabVoices": "Voices",
+    "tabUpload": "Upload",
     "tabBackground": "Environment",
     "tabNegatives": "Negative Phrases"
   },
