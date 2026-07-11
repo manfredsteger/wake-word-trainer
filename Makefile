@@ -8,7 +8,11 @@ C := \033[0;36m
 B := \033[1m
 X := \033[0m
 
-.PHONY: up down restart build logs open shell status mobile train clean nuke help
+# Auto-detect local IP (en0 = WiFi on Mac)
+LOCAL_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "127.0.0.1")
+CERT_DIR  := .certs
+
+.PHONY: up down restart build logs open shell status mobile-setup mobile train clean nuke help
 
 ##@ Start / Stop
 
@@ -40,22 +44,56 @@ logs: ## Follow live logs  (Ctrl+C to exit)
 open: ## Open http://localhost:3000 in the browser
 	@open http://localhost:3000 2>/dev/null || xdg-open http://localhost:3000
 
-mobile: ## HTTPS tunnel for iPhone/tablet access — requires: brew install ngrok
-	@command -v ngrok >/dev/null 2>&1 || { \
-		echo "$(R)ngrok not found$(X) — install with: $(B)brew install ngrok$(X)"; \
-		echo "Then sign up free at https://ngrok.com and run: $(B)ngrok config add-authtoken <token>$(X)"; \
-		exit 1; }
-	@echo "$(B)$(G)→ Starting HTTPS tunnel...$(X)"
-	@echo "  Copy the $(B)https://...ngrok-free.app$(X) URL to your iPhone"
-	@echo "  Microphone works only over HTTPS — this is why direct IP access fails"
-	@echo ""
-	@ngrok http 3000
-
 shell: ## Open a bash shell inside the running container
 	@docker compose exec web bash
 
 status: ## Show container status
 	@docker compose ps
+
+##@ iPhone / Mobile (lokales HTTPS, kein Internet nötig)
+
+mobile-setup: ## Einmalig: lokales HTTPS-Zertifikat erstellen + iPhone-Anleitung
+	@command -v mkcert >/dev/null 2>&1 || { \
+		echo "$(Y)→ mkcert installieren...$(X)"; \
+		brew install mkcert; }
+	@mkcert -install
+	@mkdir -p $(CERT_DIR)
+	@cd $(CERT_DIR) && mkcert $(LOCAL_IP) localhost 127.0.0.1
+	@echo ""
+	@echo "$(G)✓ Zertifikat erstellt für $(B)$(LOCAL_IP)$(X)"
+	@echo ""
+	@echo "$(B)iPhone einrichten (einmalig):$(X)"
+	@echo ""
+	@echo "  $(Y)Schritt 1:$(X) Root-Zertifikat per AirDrop an dein iPhone senden:"
+	@echo "  $(B)open $$(mkcert -CAROOT)$(X)"
+	@echo "  → Datei $(B)rootCA.pem$(X) per AirDrop ans iPhone schicken"
+	@echo ""
+	@echo "  $(Y)Schritt 2:$(X) Auf dem iPhone:"
+	@echo "  Einstellungen → Allgemein → VPN & Geräteverwaltung → Zertifikat installieren"
+	@echo ""
+	@echo "  $(Y)Schritt 3:$(X) Auf dem iPhone:"
+	@echo "  Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen"
+	@echo "  → $(B)mkcert$(X) aktivieren"
+	@echo ""
+	@echo "Danach: $(B)make mobile$(X)"
+
+mobile: ## Lokalen HTTPS-Proxy starten — iPhone öffnet https://$(LOCAL_IP):3443
+	@[ -f "$(CERT_DIR)/$(LOCAL_IP)+2.pem" ] || \
+	 [ -f "$(CERT_DIR)/$(LOCAL_IP)+2-key.pem" ] || { \
+		echo "$(R)Kein Zertifikat gefunden.$(X) Bitte zuerst: $(B)make mobile-setup$(X)"; \
+		exit 1; }
+	@echo ""
+	@echo "$(B)$(G)→ HTTPS-Proxy läuft$(X)"
+	@echo ""
+	@echo "  Auf dem iPhone öffnen: $(B)$(C)https://$(LOCAL_IP):3443$(X)"
+	@echo "  (iPhone und Mac müssen im selben WLAN sein)"
+	@echo "  $(Y)Strg+C$(X) zum Beenden"
+	@echo ""
+	@cd $(CERT_DIR) && npx --yes local-ssl-proxy \
+		--source 3443 --target 3000 \
+		--cert "$(LOCAL_IP)+2.pem" \
+		--key  "$(LOCAL_IP)+2-key.pem" \
+		--hostname 0.0.0.0
 
 ##@ CLI Training  (no web UI required)
 
@@ -108,6 +146,6 @@ help: ## Show this help (default)
 		/^##@/ { printf "\n$(B)  %s$(X)\n", substr($$0, 5) } \
 		/^[a-z][a-zA-Z_-]+:.*## / { \
 			split($$0, a, ":.*## "); \
-			printf "  $(G)make %-12s$(X) %s\n", a[1], a[2] \
+			printf "  $(G)make %-14s$(X) %s\n", a[1], a[2] \
 		}' $(MAKEFILE_LIST)
 	@echo ""
