@@ -8,7 +8,7 @@ C := \033[0;36m
 B := \033[1m
 X := \033[0m
 
-.PHONY: up down restart build logs open shell status train clean nuke help
+.PHONY: up down restart build logs open shell status mobile train clean nuke help
 
 ##@ Start / Stop
 
@@ -39,6 +39,17 @@ logs: ## Follow live logs  (Ctrl+C to exit)
 
 open: ## Open http://localhost:3000 in the browser
 	@open http://localhost:3000 2>/dev/null || xdg-open http://localhost:3000
+
+mobile: ## HTTPS tunnel for iPhone/tablet access — requires: brew install ngrok
+	@command -v ngrok >/dev/null 2>&1 || { \
+		echo "$(R)ngrok not found$(X) — install with: $(B)brew install ngrok$(X)"; \
+		echo "Then sign up free at https://ngrok.com and run: $(B)ngrok config add-authtoken <token>$(X)"; \
+		exit 1; }
+	@echo "$(B)$(G)→ Starting HTTPS tunnel...$(X)"
+	@echo "  Copy the $(B)https://...ngrok-free.app$(X) URL to your iPhone"
+	@echo "  Microphone works only over HTTPS — this is why direct IP access fails"
+	@echo ""
+	@ngrok http 3000
 
 shell: ## Open a bash shell inside the running container
 	@docker compose exec web bash

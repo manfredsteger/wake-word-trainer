@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Mic, StopCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Mic, StopCircle, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function encodeWAV(samples: Float32Array, sampleRate: number): Blob {
@@ -36,6 +36,23 @@ export function BackgroundRecorder({ label, durationSeconds = 30, apiPath, extra
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
   const stopRef = useRef(false);
+
+  const isSecure = typeof window !== 'undefined' &&
+    (window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+  if (!isSecure) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8 text-center px-4">
+        <div className="p-4 bg-amber-100 dark:bg-amber-950 rounded-full">
+          <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div className="space-y-2 max-w-xs">
+          <p className="font-semibold text-slate-900 dark:text-white">HTTPS erforderlich</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Starte <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">make mobile</code> und öffne den ngrok-Link auf dem iPhone.</p>
+        </div>
+      </div>
+    );
+  }
 
   const record = useCallback(async () => {
     stopRef.current = false;

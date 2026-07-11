@@ -47,6 +47,29 @@ export function Recorder({ wakeWord, speaker, target, onProgress, apiPath = '/ap
   const [errorMsg, setErrorMsg] = useState('');
   const stopRef = useRef(false);
 
+  const isSecure = typeof window !== 'undefined' &&
+    (window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+  if (!isSecure) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8 text-center px-4">
+        <div className="p-4 bg-amber-100 dark:bg-amber-950 rounded-full">
+          <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div className="space-y-2 max-w-xs">
+          <p className="font-semibold text-slate-900 dark:text-white">HTTPS erforderlich</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Browser-Mikrofon funktioniert nur über HTTPS. Öffne stattdessen den ngrok-Link:
+          </p>
+          <code className="block text-xs bg-slate-100 dark:bg-slate-800 rounded px-3 py-2 text-slate-700 dark:text-slate-300">
+            make mobile
+          </code>
+          <p className="text-xs text-slate-400">→ HTTPS-URL im Terminal kopieren und auf dem iPhone öffnen</p>
+        </div>
+      </div>
+    );
+  }
+
   const record = useCallback(async () => {
     if (!wakeWord.trim() || !speaker.trim()) return;
     stopRef.current = false;
