@@ -6,9 +6,10 @@ import { OUTPUT_DIR } from '@/lib/paths';
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = parseInt(params.id);
+  const { id: rawId } = await params;
+  const id = parseInt(rawId);
   const { label } = await req.json() as { label: string };
   if (!label?.trim()) return NextResponse.json({ error: 'label required' }, { status: 400 });
 

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import { db } from '@/lib/db';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const run = await db.trainingRun.findUnique({ where: { id: parseInt(params.id) } });
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const run = await db.trainingRun.findUnique({ where: { id: parseInt(rawId) } });
   if (!run?.logFile) return new Response('Not found', { status: 404 });
 
   const encoder = new TextEncoder();

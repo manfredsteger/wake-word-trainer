@@ -175,8 +175,16 @@ function VoicesTab() {
 
 // ── Umgebung Tab ─────────────────────────────────────────────────────────────
 
+type BgUploadStatus = 'pending' | 'uploading' | 'done' | 'error';
+interface BgUploadFile { file: File; status: BgUploadStatus; error?: string; }
+
 function BackgroundTab() {
   const [clips, setClips] = useState<string[]>([]);
+  const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [bgFiles, setBgFiles] = useState<BgUploadFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/recordings/background');
@@ -190,28 +198,79 @@ function BackgroundTab() {
     load();
   };
 
+  const startRename = (file: string) => {
+    const stem = file.replace(/\.[^.]+$/, '');
+    setRenamingFile(file);
+    setRenameValue(stem);
+  };
+
+  const commitRename = async (file: string) => {
+    if (!renameValue.trim() || renameValue === file.replace(/\.[^.]+$/, '')) {
+      setRenamingFile(null);
+      return;
+    }
+    await fetch('/api/recordings/background', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file, newName: renameValue.trim() }),
+    });
+    setRenamingFile(null);
+    load();
+  };
+
+  const addBgFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    setBgFiles(prev => [...prev, ...Array.from(incoming).map(f => ({ file: f, status: 'pending' as BgUploadStatus }))]);
+  };
+
+  const uploadBgFiles = async () => {
+    if (uploading) return;
+    setUploading(true);
+    for (let i = 0; i < bgFiles.length; i++) {
+      if (bgFiles[i].status === 'done') continue;
+      setBgFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'uploading' } : f));
+      try {
+        const form = new FormData();
+        form.append('audio', bgFiles[i].file);
+        const res = await fetch('/api/recordings/background', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(await res.text());
+        setBgFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'done' } : f));
+        load();
+      } catch (e) {
+        setBgFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'error', error: e instanceof Error ? e.message : 'Fehler' } : f));
+      }
+    }
+    setUploading(false);
+  };
+
+  const pendingBg = bgFiles.filter(f => f.status === 'pending' || f.status === 'error').length;
+
   return (
     <div className="space-y-6">
+      {/* Info-Banner */}
+      <div className="card p-4 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          <strong>Umgebungsgeräusche</strong> werden beim Training als Hintergrundrauschen eingemischt — das Modell lernt, das Wake Word auch in deiner typischen Umgebung zu erkennen.
+          Aufnahmen werden als <strong>FLAC</strong> gespeichert (verlustfrei, ~55% kleiner als WAV, kompatibel mit openWakeWord).
+        </p>
+      </div>
+
+      {/* Aufnahme + Upload nebeneinander */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Direkt aufnehmen */}
         <div className="card p-6 space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-orange-100 dark:bg-orange-950 rounded-lg shrink-0">
               <Volume2 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">Umgebungsgeräusche aufnehmen</h3>
+              <h3 className="font-semibold text-slate-900 dark:text-white">Direkt aufnehmen</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Nimm 30s typischen Lärm in deinem Zuhause auf — TV läuft, Gespräch, Küche. Das Modell lernt dadurch, Wake Words in <em>deiner</em> Umgebung zu erkennen.
+                30 s Umgebungsgeräusche — TV, Gespräche, Küche, Musik. Mehrere Aufnahmen aus verschiedenen Räumen.
               </p>
             </div>
           </div>
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              <strong>Tipps:</strong> TV im Hintergrund · normale Gespräche · Küchen&shy;geräusche · Musikanlage · mehrere Aufnahmen aus verschiedenen Räumen
-            </p>
-          </div>
-        </div>
-        <div className="card p-6">
           <BackgroundRecorder
             label="home_background"
             durationSeconds={30}
@@ -219,19 +278,94 @@ function BackgroundTab() {
             onSaved={load}
           />
         </div>
+
+        {/* Upload vom Gerät */}
+        <div className="card p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-orange-100 dark:bg-orange-950 rounded-lg shrink-0">
+              <Upload className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 dark:text-white">Aufnahme hochladen</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Auf dem iPhone mit Voice Memos aufnehmen (z.B. Dunstabzugshaube, Fernseher, Straßenlärm) und hier hochladen.
+              </p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => uploadRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); addBgFiles(e.dataTransfer.files); }}
+            className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-5 text-center cursor-pointer hover:border-orange-400 dark:hover:border-orange-500 transition-colors"
+          >
+            <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Dateien auswählen oder ziehen</p>
+            <p className="text-xs text-slate-400 mt-0.5">M4A · WAV · MP3 · FLAC — alle Formate via ffmpeg</p>
+            <input ref={uploadRef} type="file" accept="audio/*,video/mp4,.m4a,.caf" multiple className="hidden" onChange={e => addBgFiles(e.target.files)} />
+          </div>
+
+          {bgFiles.length > 0 && (
+            <div className="space-y-1.5">
+              {bgFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-xs">
+                  {f.status === 'done'      && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  {f.status === 'error'     && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                  {f.status === 'uploading' && <Loader2 className="w-3.5 h-3.5 text-orange-500 animate-spin shrink-0" />}
+                  {f.status === 'pending'   && <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0" />}
+                  <span className="flex-1 truncate text-slate-600 dark:text-slate-300">{f.file.name}</span>
+                  {f.error && <span className="text-red-500 truncate max-w-[120px]">{f.error}</span>}
+                </div>
+              ))}
+              <button
+                onClick={uploadBgFiles}
+                disabled={uploading || pendingBg === 0}
+                className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
+              >
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {uploading ? 'Konvertiere & speichere…' : `${pendingBg} Datei${pendingBg !== 1 ? 'en' : ''} hochladen`}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Dateiliste mit Rename */}
       {clips.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <h2 className="font-semibold text-slate-900 dark:text-white">{clips.length} Umgebungsaufnahme{clips.length !== 1 ? 'n' : ''} gespeichert</h2>
+            <p className="text-xs text-slate-400">Klick auf den Namen zum Umbenennen</p>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {clips.map(file => (
-              <div key={file} className="px-5 py-3 flex items-center gap-4">
+              <div key={file} className="px-5 py-3 flex items-center gap-3">
                 <Volume2 className="w-4 h-4 text-orange-500 shrink-0" />
-                <span className="flex-1 text-sm text-slate-600 dark:text-slate-300 font-mono truncate">{file}</span>
-                <button onClick={() => deleteClip(file)} className="btn-danger"><Trash2 className="w-3.5 h-3.5" /></button>
+
+                {renamingFile === file ? (
+                  <input
+                    autoFocus
+                    className="flex-1 input text-sm py-1 font-mono"
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onBlur={() => commitRename(file)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') commitRename(file);
+                      if (e.key === 'Escape') setRenamingFile(null);
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => startRename(file)}
+                    className="flex-1 text-left text-sm text-slate-600 dark:text-slate-300 font-mono truncate hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                    title="Klicken zum Umbenennen"
+                  >
+                    {file}
+                  </button>
+                )}
+
+                <span className="text-xs text-slate-400 shrink-0 uppercase">{file.split('.').pop()}</span>
+                <button onClick={() => deleteClip(file)} className="btn-danger shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             ))}
           </div>
